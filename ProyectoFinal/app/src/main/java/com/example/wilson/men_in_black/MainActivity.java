@@ -6,6 +6,7 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -36,6 +37,9 @@ import org.openalpr.model.Results;
 import org.openalpr.model.ResultsError;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -48,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_IMAGE = 100;
     private static final int STORAGE=1;
+    private int PICK_IMAGE_REQUEST = 1;
     static final String RUNTIME_DATA_DIR_ASSET = "runtime_data";
     static final String ANDROID_DATA_DIR = "/data/data/com.example.wilson.men_in_black";
     static final String OPENALPR_CONF_FILE = "openalpr.conf";
@@ -55,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView resultTextView;
     private ImageView imageView;
     private Button button;
-    
+    final String openAlprConfFile = ANDROID_DATA_DIR + File.separatorChar + RUNTIME_DATA_DIR_ASSET + File.separatorChar + OPENALPR_CONF_FILE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,26 +94,25 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        Log.wtf("prueba3", "en onActivityResult");
         if (requestCode == REQUEST_IMAGE && resultCode == Activity.RESULT_OK){
             final ProgressDialog progress = ProgressDialog.show(this, "Loading",
                     "Parsing result...", true);
-
-            final String openAlprConfFile = ANDROID_DATA_DIR + File.separatorChar + RUNTIME_DATA_DIR_ASSET + File.separatorChar + OPENALPR_CONF_FILE;
-
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = 10;
-
-            // Picasso requires permission.WRITE_EXTERNAL_STORAGE
-            Picasso.get().load(destination).fit().centerCrop().into(imageView);
-            resultTextView.setText("Processing");
 
             AsyncTask.execute(new Runnable() {
                 @Override
                 public void run() {
 
+                    BitmapFactory.Options options = new BitmapFactory.Options();
+                    options.inSampleSize = 10;
+
+                    // Picasso requires permission.WRITE_EXTERNAL_STORAGE
+                    Picasso.get().load(destination).fit().centerCrop().into(imageView);
+                    resultTextView.setText("Processing");
+
                     String result = OpenALPR.Factory.create(MainActivity.this, ANDROID_DATA_DIR).recognizeWithCountryRegionNConfig("us", "", destination.getAbsolutePath(), openAlprConfFile, 2);
-                    Log.wtf("openAlprConfFile", openAlprConfFile);
+                    Log.wtf("abspath", destination.getAbsolutePath());
+
+
                     Log.d("OPEN ALPR", result);
 
                     try{
@@ -124,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
 
                                     resultTextView.setText("Plate: " + results.getResults().get(0).getPlate()
                                             // Trim confidence to two decimal places
-                                            + " Confidence" + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
+                                            + " Confidence: " + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
                                             // Convert processing time to seconds and trim to two decimal places
                                             + " Processing time: "+ String.format("%.2f", ((results.getProcessingTimeMs() + 1000.0) % 60)) + " seconds");
                                 }
@@ -144,7 +148,75 @@ public class MainActivity extends AppCompatActivity {
                     progress.dismiss();
                 }
             });
-        }else{Log.wtf("prueba4", "algo anda mal");}
+        }
+
+
+        else if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null){
+            final ProgressDialog progress = ProgressDialog.show(this, "Loading",
+                    "Parsing result...", true);
+
+            Uri uri = data.getData();
+
+
+
+            try {
+                Bitmap bmImg = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+
+                String path = null;
+                try {
+                    path = getRealPath.getPath(MainActivity.this, uri);
+                } catch (URISyntaxException e) {
+                    e.printStackTrace();
+                }
+
+                Picasso.get().load(uri).fit().centerCrop().into(imageView);
+
+                //imageView.setImageBitmap(bmImg);
+
+                String result = OpenALPR.Factory.create(MainActivity.this, ANDROID_DATA_DIR).recognizeWithCountryRegionNConfig("us", "", path, openAlprConfFile, 2);
+                Log.d("OPEN ALPR", result);
+
+                try{
+                    final Results results = new Gson().fromJson(result, Results.class);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (results == null || results.getResults() == null ||
+                                    results.getResults().size() == 0){
+                                Toast.makeText(MainActivity.this, "It was not possible to detect the license plate.", Toast.LENGTH_LONG).show();
+                                resultTextView.setText("It was not possible to detect a licence plate");
+                            } else {
+                                resultTextView.setText("Plate: " + results.getResults().get(0).getPlate()
+                                        // Trim confidence to two decimal places
+                                        + " Confidence: " + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
+                                        // Convert processing time to seconds and trim to two decimal places
+                                        + " Processing time: "+ String.format("%.2f", ((results.getProcessingTimeMs() + 1000.0) % 60)) + " seconds");
+                            }
+                        }
+                    });
+                } catch (JsonSyntaxException exception){
+                    final ResultsError resultsError = new Gson().fromJson(result, ResultsError.class);
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            resultTextView.setText(resultsError.getMsg());
+                        }
+                    });
+                }
+
+                progress.dismiss();
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+
+
     }
 
     private void checkPermission() {
@@ -203,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void takePicture() {
         //Use a folder to store all results
-        File folder = new File(Environment.getExternalStorageDirectory() + "/OpenALPR/");
+        File folder = new File(Environment.getExternalStorageDirectory().getPath());
         if (!folder.exists()){
             folder.mkdir();
         }
@@ -226,4 +298,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class GenericFileProvider extends FileProvider{}
+
+    public void openGallery(View v){
+        Intent inGallery = new Intent();
+        inGallery.setType("image/*");
+        inGallery.setAction(Intent.ACTION_GET_CONTENT);
+        startActivityForResult(Intent.createChooser(inGallery,"Select Picture"), PICK_IMAGE_REQUEST);
+    }
+
+
 }

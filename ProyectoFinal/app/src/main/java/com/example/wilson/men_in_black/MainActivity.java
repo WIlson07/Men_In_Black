@@ -95,12 +95,11 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == REQUEST_IMAGE && resultCode == Activity.RESULT_OK){
-            final ProgressDialog progress = ProgressDialog.show(this, "Loading",
-                    "Parsing result...", true);
+            final ProgressDialog progress = ProgressDialog.show(this, "Loading", "Parsing result...", true);
 
-            AsyncTask.execute(new Runnable() {
-                @Override
-                public void run() {
+           // AsyncTask.execute(new Runnable() {
+               // @Override
+//                public void run() {
 
                     BitmapFactory.Options options = new BitmapFactory.Options();
                     options.inSampleSize = 10;
@@ -128,9 +127,9 @@ public class MainActivity extends AppCompatActivity {
 
                                     resultTextView.setText("Plate: " + results.getResults().get(0).getPlate()
                                             // Trim confidence to two decimal places
-                                            + " Confidence: " + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
+                                            + " \nConfidence: " + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
                                             // Convert processing time to seconds and trim to two decimal places
-                                            + " Processing time: "+ String.format("%.2f", ((results.getProcessingTimeMs() + 1000.0) % 60)) + " seconds");
+                                            + " \nProcessing time: "+ String.format("%.2f", ((results.getProcessingTimeMs() + 1000.0) % 60)) + " seconds");
                                 }
                             }
                         });
@@ -146,14 +145,13 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     progress.dismiss();
-                }
-            });
+       //         }
+ //           });
         }
 
 
-        else if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null){
-            final ProgressDialog progress = ProgressDialog.show(this, "Loading",
-                    "Parsing result...", true);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null){
+
 
             Uri uri = data.getData();
 
@@ -188,9 +186,9 @@ public class MainActivity extends AppCompatActivity {
                             } else {
                                 resultTextView.setText("Plate: " + results.getResults().get(0).getPlate()
                                         // Trim confidence to two decimal places
-                                        + " Confidence: " + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
+                                        + " \nConfidence: " + String.format("%.2f", results.getResults().get(0).getConfidence()) + "%"
                                         // Convert processing time to seconds and trim to two decimal places
-                                        + " Processing time: "+ String.format("%.2f", ((results.getProcessingTimeMs() + 1000.0) % 60)) + " seconds");
+                                        + " \nProcessing time: "+ String.format("%.2f", ((results.getProcessingTimeMs() + 1000.0) % 60)) + " seconds");
                             }
                         }
                     });
@@ -205,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }
 
-                progress.dismiss();
+
 
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
